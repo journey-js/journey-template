@@ -5,7 +5,8 @@ var includePaths = require( 'rollup-plugin-includepaths' );
 var pkg = require( './package.json' );
 
 // Set './src/js' as a relative path for imports in modules so we can do: 
-// import myLib from 'lib/myLib.js' where 'src/js/lib/myLib.js' exists
+// import myLib from 'lib/myLib.js' 
+// where 'src/js/lib/myLib.js' is a valid entry
 let includePathOptions = {
 	paths: [ './src/js' ]
 };
@@ -16,7 +17,7 @@ module.exports = {
 	// app.js is referenced from index.html <script> tag
 	
 	// Ractive.js is loaded as an external library through index.html <script> tag. However
-    // we want to import Ractive in our modules with: import Ractive fcrom 'Ractibe.js'.
+    // we want to import Ractive in our modules with: import Ractive fcrom 'Ractive.js'.
     // So we inform Rollup that the 'Ractive.js' import is for an external library
 	 external: [
 		'Ractive.js'
@@ -24,6 +25,7 @@ module.exports = {
 
 	plugins: [
 		
+		// Setup relative paths for module imports
 		includePaths( includePathOptions ),
 
 		// this plugin allows us to import Ractive templates and optionally compile them
