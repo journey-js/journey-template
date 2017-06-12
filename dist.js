@@ -8,6 +8,7 @@ var fs = require( 'fs-extra' );
 var replaceInFile = require( 'replace-in-file' );
 var versioning = require( 'node-version-assets' );
 var jetpack = require('fs-jetpack');
+const pkg = require( './package.json' );
 
 // Define variables for src and distribution folders
 const distFolder = 'dist';
@@ -39,7 +40,7 @@ function clean() {
 
 // Copy all the assets, except JS and CSS files to the distribution folder
 function copyAssets( ) {
-	
+
 	// Copy src to dist but exclude *.css and *.js files
 	jetpack.copy(srcFolder, distFolder, { matching: [ '!**/*.css', '!**/*.js' ] });
 
@@ -66,6 +67,7 @@ function compileJS( ) {
                 bundle.write( {
                     dest: distFolder + '/js/app/app.js', // Output file
                     format: rollupConfig.targets[0].format, // output format IIFE, CJS etc.
+                    banner: '/* template version ' + pkg.version + ' */',
                     sourceMap: true // Yes we want a sourcemap
 
                 } ).then( function ( ) {
@@ -95,9 +97,9 @@ function findRollupPlugin( name ) {
         if ( plugin.name === name ) {
             return plugin;
         }
-
-        return null;
     }
+
+	return null;
 }
 
 // Bundle and uglify the CSS to the dsitrbution folder

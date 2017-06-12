@@ -23,39 +23,37 @@ module.exports = {
 		'Ractive.js'
 	],
 
-	plugins: [
-		
-		// Setup relative paths for module imports
-		includePaths( includePathOptions ),
+    plugins: [
 
-		// this plugin allows us to import Ractive templates and optionally compile them
-		// for production use. We disable compile by default and switch it back on for
-		// production in dist.js
-		ractiveCompiler( {
-			include: [ '**/*.html' ],
+        // Setup relative paths for module imports
+        includePaths( includePathOptions ),
 
-			compile: false
-		} ),
+        ractiveCompiler( {
+            include: [ '**/*.html' ],
 
-		// this plugin allows us to import plain text/json files as ES6 Modules.
-		// We configure this plugin to handle files with the pattern 'xxx.text.html'.
-		stringToModule( {
-			include: '**/*.text.html'
-		} ),
+            compile: false
+        } ),
 
-		// Setup Buble plugin to transpiler ES6 to ES5
-		buble( {
-			exclude: [ '**/*.html' ] // Skip HTML files
-		} ),
-	],
-	moduleName: 'myTemplate',
+        stringToModule({
+            include: '**/*.text.html'
+        }),
 
-	targets: [
-		{
-			format: 'iife',
-			banner: '/* journey-examples version ' + pkg.version + ' */',
-			sourceMap: true // NB: generating a SourceMap allows us to debug
-					// our code in the browser in it's original ES6 format.
-		}
-	]
+        buble( {
+            exclude: [ '**/*.html' ],
+            transforms: {
+                dangerousForOf: true
+            }
+        } ),
+
+        includePaths( includePathOptions )
+    ],
+    moduleName: 'myTemplate',
+
+    targets: [
+        {
+            format: 'iife',
+            banner: '/* template version ' + pkg.version + ' */',
+            sourceMap: true
+        }
+    ]
 };
