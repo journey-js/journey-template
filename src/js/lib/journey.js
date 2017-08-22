@@ -1,5 +1,12 @@
-/* journey version 0.0.1 */
+/* journey version 0.0.4 */
+var journey = (function () {
+'use strict';
+
 var window$1 = ( typeof window !== 'undefined' ? window : null );
+
+var mode = {
+	DEBUG: null
+};
 
 var util = {
 
@@ -84,29 +91,58 @@ var util = {
 		}
 
 		return out;
+	},
+	
+
+	log: function ( ) {
+		if ( mode.DEBUG ) {
+			Function.apply.call( console.log, console, arguments );
+		}
+	},
+	logWarn: function ( ) {
+		if ( mode.DEBUG ) {
+			Function.apply.call( console.info, console, arguments );
+		}
+	},
+	logInfo: function ( ) {
+		if ( mode.DEBUG ) {
+			Function.apply.call( console.warn, console, arguments );
+		}
+	},
+	logError: function ( ) {
+		if ( mode.DEBUG ) {
+			Function.apply.call( console.error, console, arguments );
+		}
 	}
 };
 
 var config = {
 	fallback: null,
-	
+
 	base: '',
 
-	useHash: false,
-	
+	useHash: true,
+
 	useOnHashChange: false,
 
 	hash: '#',
+
+	defaultRoute: null,
+
+	target: null,
 	
-	defaultRoute: null
+	debug: true,
+	
+	abuseTimeout: 1000
 };
 
 var pathHelper = {
 
 	getGotoPath: function (href) {
-		if ( config.useHash ) {
-			return href;
-		}
+		// TODO should this part be uncommented?
+//		if ( config.useHash ) {
+//			return href;
+//		}
 		
 		href = pathHelper.stripSlashOrHashPrefix( href );
 		return href;
@@ -216,7 +252,7 @@ var watchHistory = {
 	},
 
 	popstateEventLisener: function popstateEventLisener( e ) {
-		if ( e.state == null ) { return; } // hashchange, or otherwise outside roadtrip's control
+		if ( e.state == null ) { return; } // hashchange, or otherwise outside journey's control
 
 		//let url = location.pathname;
 		var url = config.useHash ? window$1.location.hash : window$1.location.pathname;
@@ -253,7 +289,7 @@ var watchHistory = {
 
 		hash = options.invisible ? window$1.location.hash : hash;
 
-		if (options.replace) {
+		if (options.replaceState) {
 			location.replace(hash);
 
 		} else {
@@ -301,7 +337,7 @@ RouteData.prototype = {
 function Route( path, options ) {
 	var this$1 = this;
 
-	path = pathHelper.stripSlashOrHashPrefix(path);	
+	path = pathHelper.stripSlashOrHashPrefix(path);
 
 	this.path = path;
 	this.segments = path.split( '/' );
@@ -322,7 +358,7 @@ function Route( path, options ) {
 				value = options[ handler ]( route, other, opts );
 			}
 
-			return roadtrip.Promise.resolve( value );
+			return journey.Promise.resolve( value );
 		};
 	} );
 }
@@ -603,326 +639,6 @@ function isArray ( thing ) {
 	return toString.call( thing ) === '[object Array]';
 }
 
-// from https://developer.mozilla.org/en/docs/Web/API/WindowEventHandlers/onhashchange
-if ( ! window.HashChangeEvent )
-	{ ( function () {
-
-		var lastURL = document.URL;
-
-		window.addEventListener( "hashchange", function ( event ) {
-			Object.defineProperty( event, "oldURL", { enumerable: true, configurable: true, value: lastURL } );
-			Object.defineProperty( event, "newURL", { enumerable: true, configurable: true, value: document.URL } );
-
-			lastURL = document.URL;
-		} );
-	}() ); }
-
-
-if ( ! String.prototype.startsWith ) {
-	String.prototype.startsWith = function ( searchString, position ) {
-		position = position || 0;
-		return this.substr( position, searchString.length ) === searchString;
-	};
-}
-
-if ( ! String.prototype.endsWith ) {
-	String.prototype.endsWith = function ( searchString, position ) {
-		var subjectString = this.toString();
-		if ( typeof position !== 'number' || ! isFinite( position ) || Math.floor( position ) !== position || position > subjectString.length ) {
-			position = subjectString.length;
-		}
-		position -= searchString.length;
-		var lastIndex = subjectString.lastIndexOf( searchString, position );
-		return lastIndex !== - 1 && lastIndex === position;
-	};
-}
-
-function noop () {}
-
-var currentData = {};
-var currentRoute = {
-	enter: function () { return roadtrip.Promise.resolve(); },
-	leave: function () { return roadtrip.Promise.resolve(); },
-	beforeleave: function () { return roadtrip.Promise.resolve(); },
-};
-
-var _target;
-var isTransitioning = false;
-
-var scrollHistory = {};
-var uniqueID = 1;
-var currentID = uniqueID;
-
-var roadtrip = {
-	Promise: Promise,
-
-	add: function add ( path, options ) {
-		routes.push( new Route( path, options ) );
-		return roadtrip;
-	},
-
-	start: function start ( options ) {
-		if ( options === void 0 ) options = {};
-
-
-		util.extend( config, options );
-		
-		watchHistory.start(config);
-		watchHistory.setListener(historyListener);
-
-		var path = pathHelper.getInitialPath();
-
-		var matchFound = routes.some( function (route) { return route.matches( path ); } );
-		var href = matchFound ?
-			path :
-			config.fallback;
-
-			var internalOptions = {
-				replaceState: true,
-				scrollX: window$1.scrollX,
-				scrollY: window$1.scrollY
-			};
-			var otherOptions = {};
-
-		return roadtrip.goto( href, otherOptions, internalOptions);
-	},
-
-	goto: function goto ( href, internalOptions) {
-		if ( internalOptions === void 0 ) internalOptions = {};
-
-		if (href == null) { return roadtrip.Promise.resolve(); }
-
-		href = pathHelper.getGotoPath(href);
-
-		scrollHistory[ currentID ] = {
-			x: window$1.scrollX,
-			y: window$1.scrollY
-		};
-
-		var target;
-		var promise = new roadtrip.Promise( function ( fulfil, reject ) {
-			target = _target = {
-				href: href,
-				scrollX: internalOptions.scrollX || 0,
-				scrollY: internalOptions.scrollY || 0,
-				internalOptions: internalOptions,
-				fulfil: fulfil,
-				reject: reject
-			};
-		});
-		
-		promise._locked = false;
-		
-		_target.promise = promise;
-		
-		if ( isTransitioning ) {
-			promise._locked = true;
-			return promise;
-		}
-
-		_goto( target );
-
-		promise._sameRoute = target._sameRoute;
-		return promise;
-	},
-
-	getCurrentRoute: function getCurrentRoute () {
-		return currentData;
-	}
-};
-
-if ( window$1 ) {
-	watchLinks( function (href) {
-		roadtrip.goto( href )
-
-			.catch(function (e) {
-				isTransitioning = false; 
-			} );
-	});
-}
-
-function getNewData(target) {
-	var newData;
-	var newRoute;
-
-	for ( var i = 0; i < routes.length; i += 1 ) {
-		var route = routes[i];
-		newData = route.exec( target );
-
-		if ( newData ) {
-			newRoute = route;
-			break;
-		}
-	}
-
-	return {
-		newRoute: newRoute,
-		newData: newData
-	};
-}
-
-function historyListener(options) {
-
-		var url = util.stripBase(options.url, config.base);
-
-	var internalOptions = {};
-
-		_target = {
-			href: url,
-			hashChange: options.hashChange, // so we know not to manipulate the history
-			popState: options.popState, // so we know not to manipulate the history
-			fulfil: noop,
-			reject: noop,
-			internalOptions: internalOptions
-		};
-
-		if(options.popEvent != null) {
-			var scroll = scrollHistory[ options.popEvent.state.uid ] || {x: 0, y: 0};
-			_target.scrollX = scroll.x;
-			_target.scrollY = scroll.y;
-
-		} else {
-			_target.scrollX = 0;
-			_target.scrollY = 0;
-		}
-
-		_goto( _target );
-
-		if(options.popEvent != null) {
-			currentID = options.popEvent.state.uid;
-		}
-}
-
-function _goto ( target ) {
-	var newRoute;
-	var newData;
-	var forceReloadRoute = target.internalOptions.forceReload || false;
-
-	//let targetHref = util.stripBase(target.href, config.base);
-	var targetHref = pathHelper.prefixWithSlash(target.href);
-	target.href = targetHref;
-
-	var result = getNewData(target);
-
-	if (!result.newData) {
-		// If we cannot find data, it is because the requested url isn't mapped to a route. Use fallback to render page. Keep url pointing to requested url for 
-		// debugging.
-		var tempHref = target.href;
-		target.href = config.fallback;
-		result = getNewData(target);
-		target.href = tempHref;
-	}
-
-	newData = result.newData;
-	newRoute = result.newRoute;
-
-	target._sameRoute = false;
-	if ( !newRoute || (isSameRoute( newRoute, currentRoute, newData, currentData ) && !forceReloadRoute) ) {
-		target.fulfil();
-		target._sameRoute = true;
-		return;
-	}
-
-	scrollHistory[ currentID ] = {
-		x: ( currentData.scrollX = window$1.scrollX ),
-		y: ( currentData.scrollY = window$1.scrollY )
-	};
-
-	isTransitioning = true;
-
-	var promise;
-	if ( !forceReloadRoute && ( newRoute === currentRoute ) && newRoute.updateable ) {
-
-		// For updates, merge newData into currentData, in order to preserve custom data that was set during enter or beforeenter events
-		newData = newData.extend({}, currentData, newData);
-
-		promise = newRoute.update( newData );
-		
-	} else {
-		
-		promise = new roadtrip.Promise(function (resolve, reject) {
-			
-					roadtrip.Promise.all([ currentRoute.beforeleave( currentData, newData )	])
-							.then( function () { return Promise.all( [ newRoute.beforeenter( newData, currentData ) ]); })
-							.then( function () { return Promise.all( [ currentRoute.leave( currentData, newData ) ]); })
-							.then( function () {
-								resolve();
-								newRoute.enter( newData, currentData );
-							})
-							.catch( function ( e ) {
-										reject( e );
-							} );
-						} );
-	}
-
-	promise
-		.then( function () {
-			currentRoute = newRoute;
-			currentData = newData;
-
-			isTransitioning = false;
-
-			// if the user navigated while the transition was taking
-			// place, we need to do it all again
-			if ( _target !== target ) {
-				_goto( _target );
-				_target.promise.then( target.fulfil, target.reject );
-
-			} else {
-				target.fulfil();
-				//updateHistory(target);
-			}
-		})
-		.catch( function (e) {
-			isTransitioning = false;
-			target.reject(e);
-		});
-
-		updateHistory(target);
-}
-
-function updateHistory(target) {
-	
-	if ( target.popState || target.hashChange ) { return; }
-
-	var ref = target.internalOptions;
-	var replaceState = ref.replaceState;
-	var invisible = ref.invisible;
-	if ( invisible ) { return; }
-	
-	var uid = replaceState ? currentID : ++uniqueID;
-
-	var targetHref = target.href;
-
-	if (watchHistory.useOnHashChange) {
-		targetHref = pathHelper.prefixWithHash(targetHref);
-		target.href = targetHref;
-		watchHistory.setHash( targetHref, target.internalOptions );
-
-	} else {
-
-		if (config.useHash) {
-			targetHref = pathHelper.prefixWithHash(targetHref);
-			target.href = targetHref;
-
-		} else {
-			targetHref = pathHelper.prefixWithSlash(targetHref);
-			// Add base path for pushstate, as we are routing to an absolute path '/' eg. /base/page1
-			targetHref = util.prefixWithBase(targetHref, config.base);
-			target.href = targetHref;
-		}
-
-		history[ target.internalOptions.replaceState ? 'replaceState' : 'pushState' ]( { uid: uid }, '', target.href );
-	}
-
-	currentID = uid;
-	scrollHistory[ currentID ] = {
-		x: target.scrollX,
-		y: target.scrollY
-	};
-	
-}
-
 /*!
  * EventEmitter v4.2.11 - git.io/ee
  * https://github.com/Olical/EventEmitter
@@ -938,7 +654,6 @@ function updateHistory(target) {
      * @class EventEmitter Manages event registering and emitting.
      */
     function EventEmitter() {}
-	
 
     // Shortcuts to improve speed and size
     var proto = EventEmitter.prototype;
@@ -1386,6 +1101,24 @@ function updateHistory(target) {
         module.exports = EventEmitter;
     }
 
+var events = {
+	BEFORE_LEAVE: "beforeleave",
+	BEFORE_LEAVE_COMPLETE: "beforeleaveComplete",
+	BEFORE_ENTER: "beforeenter",
+	BEFORE_ENTER_COMPLETE: "beforeenterComplete",
+	ENTER: "enter",	
+	ENTERED: "entered",
+	UPDATE: "update",
+	UPDATED: "updated",
+	LEAVE: "leave",
+	LEFT: "left",
+	TRANSITION_ABORTED: "transitionAborted",
+	ROUTE_ABUSE_START: "routeAbuseStart",
+	ROUTE_ABUSE_STOP: "routeAbuseStop",
+	_GOTO: "_goto",
+	ERROR: "error"
+};
+
 var eventer = new EventEmitter();
 
 var journey$2;
@@ -1401,229 +1134,476 @@ eventer.emit = function ( that ) {
 	origEmit.apply( this, arguments );
 };
 
-
 eventer.init = function ( arg ) {
 	journey$2 = arg;
-
-	journey$2.on = function ( event, listener ) {
-		//eventer.on.call( journey, event, listener );
-		eventer.on( event, listener );
-	};
-	
-	journey$2.off = function ( event, listener ) {
-		eventer.off( event, listener );
-	};
-	
-journey$2.once = function ( event, listener ) {
-		eventer.off( event, listener );
-	};
-	
-	journey$2.emit = function () {
-		eventer.emit.apply( eventer, arguments );
-	};
-
-	journey$2.emitEvent = function () {
-		eventer.emitEvent.apply( eventer, arguments );
-	};
 };
 
-var mode = {
-	DEBUG: null
+eventer.raiseError = function ( options ) {
+	util.logError( options.error );
+	journey$2.emit( journey$2, events.ERROR, options );
 };
 
-var rbracket = /\[\]$/;
-var r20 = /%20/g;
-var utils = {
+var journey$3;
 
-	isFunction: function ( val ) {
-		return typeof val === 'function';
+var handler = {
+
+	init: function init( arg ) {
+		journey$3 = arg;
 	},
 
-	fadeIn: function ( el ) {
-		el.style.opacity = 0;
-		var last = + new Date( );
-		var tick = function ( ) {
-			el.style.opacity = + el.style.opacity + ( new Date( ) - last ) / 400;
-			last = + new Date( );
-			if ( + el.style.opacity < 1 ) {
-				( window.requestAnimationFrame && requestAnimationFrame( tick ) ) || setTimeout( tick, 16 );
-			}
-		};
-		tick( );
-	},
+	update: function update( newRoute, newData, target ) {
 
-	fadeOut: function ( el ) {
-		el.style.opacity = 0;
-		var last = + new Date( );
-		var tick = function ( ) {
-			el.style.opacity = + el.style.opacity + ( new Date( ) - last ) / 400;
-			last = + new Date( );
-			if ( + el.style.opacity < 1 ) {
-				( window.requestAnimationFrame && requestAnimationFrame( tick ) ) || setTimeout( tick, 16 );
-			}
-		};
-		tick( );
-	},
+		// For updates, merge newData into currentData, in order to preserve custom data that was set during enter or beforeenter events
+		newData = util.extend( target.currentData, newData );
+		var handlerOptions = handler.getDefaultOptions( newRoute );
+		var eventOptions = { route: newData, from: null, to: null, options: handlerOptions };
 
-	// Serialize an array of form elements or a set of key/values into a query string
-	param: function ( a, traditional ) {
-		var prefix,
-				s = [ ],
-				add = function ( key, value ) {
-					// If value is a function, invoke it and return its value
-					value = ( typeof value === 'function' ) ? value( ) : ( value == null ? "" : value );
-					s[ s.length ] = encodeURIComponent( key ) + "=" + encodeURIComponent( value );
-				};
-		// If an array was passed in, assume that it is an array of form elements.
-		if ( Array.isArray( a ) ) {
-			// Serialize the form elements
-			a.forEach( function ( item, index ) {
-				add( item.name, item.value );
+		try {
+			eventer.emit( events.UPDATE, eventOptions );
+
+			var result = newRoute.update( newData, handlerOptions );
+
+			var promise = journey$3.Promise.all( [ result ] ); // Ensure handler result can be handled as promise
+
+			promise.then( function () {
+				// Update currentRoute *after* update resolves
+				journey$3._updateCurrentRoute( target, newRoute, newData );
+
+				eventer.emit( journey$3, events.UPDATED, eventOptions );
+
+			} ).catch( function (err) {
+				var options = handler.gatherErrorOptions( events.UPDATE, newRoute, null, null, err );
+				eventer.raiseError( options );
 			} );
-		} else {
-			// If traditional, encode the "old" way (the way 1.3.2 or older
-			// did it), otherwise encode params recursively.
-			for ( prefix in a ) {
 
-				buildParams( prefix, a[ prefix ], traditional, add );
-			}
-		}
+			return promise;
 
-		// Return the resulting serialization
-		return s.join( "&" ).replace( r20, "+" );
-	},
-
-	log: function ( ) {
-		if ( mode.DEBUG ) {
-			Function.apply.call( console.log, console, arguments );
+		} catch ( err ) {
+			var options = handler.gatherErrorOptions( events.UPDATE, newRoute, null, null, err );
+			eventer.raiseError( options );
+			return journey$3.Promise.reject( "error occurred in [" + events.UPDATE + "] - " + err.message ); // let others handle further up the stack
 		}
 	},
 
-	logWarn: function ( ) {
-		if ( mode.DEBUG ) {
-			Function.apply.call( console.info, console, arguments );
+	enter: function enter( newRoute, newData, target ) {
+		
+		var handlerOptions = handler.getDefaultOptions( newRoute );
+		var eventOptions = { from: target.currentData, to: newData, options: handlerOptions };
+
+		try {
+			eventer.emit( events.ENTER, eventOptions );
+
+			var result = newRoute.enter( newData, target.currentData, handlerOptions );
+
+			var promise = journey$3.Promise.all( [ result ] ); // Ensure handler result can be handled as promise
+
+			promise.then( function () {
+				eventer.emit( journey$3, events.ENTERED, eventOptions );
+
+			} ).catch( function (err) {
+				var options = handler.gatherErrorOptions( events.ENTER, target.currentRoute, target.currentData, newData, err );
+				eventer.raiseError( options );
+			} );
+
+			return promise;
+
+		} catch ( err ) {
+			var options = handler.gatherErrorOptions( events.ENTER, target.currentRoute, null, null, err );
+			eventer.raiseError( options );
+			return journey$3.Promise.reject( "error occurred in [" + events.ENTER + "] - " + err.message ); // let others handle further up the stack
+
 		}
 	},
 
-	logInfo: function ( ) {
-		if ( mode.DEBUG ) {
-			Function.apply.call( console.warn, console, arguments );
+	beforeenter: function beforeenter( newRoute, newData, target ) {
+		
+		var handlerOptions = handler.getDefaultOptions( newRoute );
+		var eventOptions = { from: target.currentData, to: newData, options: handlerOptions };
+
+		try {
+			eventer.emit( events.BEFORE_ENTER, eventOptions );
+
+			var result = newRoute.beforeenter( newData, target.currentData, handlerOptions );
+
+			var promise = journey$3.Promise.all( [ result ] ); // Ensure handler result can be handled as promise
+
+			promise.then( function () {
+
+				eventer.emit( journey$3, events.BEFORE_ENTER_COMPLETE, eventOptions );
+
+			} ).catch( function (err) {
+				var options = handler.gatherErrorOptions( events.BEFORE_ENTER, target.currentRoute, target.currentData, newData, err );
+				eventer.raiseError( options );
+			} );
+
+			return promise;
+
+		} catch ( err ) {
+			var options = handler.gatherErrorOptions( events.BEFORE_ENTER, target.currentRoute, null, null, err );
+			eventer.raiseError( options );
+			return journey$3.Promise.reject( "error occurred in [" + events.BEFORE_ENTER + "] - " + err.message ); // let others handle further up the stack
 		}
 	},
 
-	logError: function ( ) {
-		if ( mode.DEBUG ) {
-			Function.apply.call( console.error, console, arguments );
+	beforeleave: function beforeleave( newRoute, newData, target ) {
+
+		var handlerOptions = handler.getDefaultOptions( target.currentRoute );
+		var eventOptions = { from: target.currentData, to: newData, options: handlerOptions };
+
+		try {
+			eventer.emit( events.BEFORE_LEAVE, eventOptions );
+
+			var result = target.currentRoute.beforeleave( target.currentData, newData, handlerOptions );
+
+			var promise = journey$3.Promise.all( [ result ] ); // Ensure handler result can be handled as promise
+
+			promise.then( function () {
+
+				eventer.emit( journey$3, events.BEFORE_LEAVE_COMPLETE, eventOptions );
+
+			} ).catch( function (err) {
+				var options = handler.gatherErrorOptions( events.BEFORE_LEAVE, target.currentRoute, target.currentData, newData, err );
+				eventer.raiseError( options );
+			} );
+
+			return promise;
+
+		} catch ( err ) {
+			var options = handler.gatherErrorOptions( events.BEFORE_LEAVE, target.currentRoute, null, null, err );
+			eventer.raiseError( options );
+			return journey$3.Promise.reject( "error occurred in [" + events.BEFORE_LEAVE + "] - " + err.message ); // let others handle further up the stack
+
+		}
+	},
+
+	leave: function leave( newRoute, newData, target ) {
+
+		var handlerOptions = handler.getDefaultOptions( target.currentRoute );
+		var eventOptions = { from: target.currentData, to: newData, options: handlerOptions };
+
+		try {
+			eventer.emit( events.LEAVE, eventOptions );
+
+			var result = target.currentRoute.leave( target.currentData, newData, handlerOptions );
+			var promise = journey$3.Promise.all( [ result ] ); // Ensure handler result can be handled as promise
+
+			promise.then( function () {
+				// Update currentRoute *after* leave resolves
+				journey$3._updateCurrentRoute( target, newRoute, newData );
+
+				eventer.emit( journey$3, events.LEFT, eventOptions );
+
+			} ).catch( function (err) {
+				var options = handler.gatherErrorOptions( events.LEAVE, target.currentRoute, target.currentData, newData, err );
+				eventer.raiseError( options );
+			} );
+
+			return promise;
+
+		} catch ( err ) {
+			var options = handler.gatherErrorOptions( events.LEAVE, target.currentRoute, null, null, err );
+			eventer.raiseError( options );
+			return journey$3.Promise.reject( "error occurred in [" + events.LEAVE + "] - " + err.message ); // let others handle further up the stack
+
 		}
 	}
 };
 
-function buildParams( prefix, obj, traditional, add ) {
-	var name;
-	if ( Array.isArray( obj ) ) {
-		// Serialize array item.
-		obj.forEach( function ( item, index ) {
-			if ( traditional || rbracket.test( prefix ) ) {
-				// Treat each array item as a scalar.
-				add( prefix, item );
-			} else {
-				// Item is non-scalar (array or object), encode its numeric index.
-				buildParams( prefix + "[" + ( typeof item === "object" ? index : "" ) + "]", item, traditional, add );
+handler.getDefaultOptions = function( route ) {
+	var options = { };
+	options.target = config.target;
+	return options;
+};
+
+handler.gatherErrorOptions = function( handlerName, route, to, from, err ) {
+
+	var errorOptions = { error: err, event: handlerName, from: from, to: to, route: route };
+
+	var options = handler.getDefaultOptions( route );
+
+	errorOptions.options = options;
+	return errorOptions;
+};
+
+// from https://developer.mozilla.org/en/docs/Web/API/WindowEventHandlers/onhashchange
+if ( ! window.HashChangeEvent )
+	{ ( function () {
+
+		var lastURL = document.URL;
+
+		window.addEventListener( "hashchange", function ( event ) {
+			Object.defineProperty( event, "oldURL", { enumerable: true, configurable: true, value: lastURL } );
+			Object.defineProperty( event, "newURL", { enumerable: true, configurable: true, value: document.URL } );
+
+			lastURL = document.URL;
+		} );
+	}() ); }
+
+
+if ( ! String.prototype.startsWith ) {
+	String.prototype.startsWith = function ( searchString, position ) {
+		position = position || 0;
+		return this.substr( position, searchString.length ) === searchString;
+	};
+}
+
+if ( ! String.prototype.endsWith ) {
+	String.prototype.endsWith = function ( searchString, position ) {
+		var subjectString = this.toString();
+		if ( typeof position !== 'number' || ! isFinite( position ) || Math.floor( position ) !== position || position > subjectString.length ) {
+			position = subjectString.length;
+		}
+		position -= searchString.length;
+		var lastIndex = subjectString.lastIndexOf( searchString, position );
+		return lastIndex !== - 1 && lastIndex === position;
+	};
+}
+
+// Promise
+// TODO: Better global attachment
+if ( window && ! window.Promise ) {
+	var PENDING = { };
+	var FULFILLED = { };
+	var REJECTED = { };
+
+	var Promise$1 = window.Promise = function ( callback ) {
+		var fulfilledHandlers = [ ];
+		var rejectedHandlers = [ ];
+		var state = PENDING;
+		var result;
+		var dispatchHandlers;
+
+		var makeResolver = function ( newState ) {
+			return function ( value ) {
+				if ( state !== PENDING ) {
+					return;
+				}
+				result = value;
+				state = newState;
+				dispatchHandlers = makeDispatcher( ( state === FULFILLED ? fulfilledHandlers : rejectedHandlers ), result );
+				wait( dispatchHandlers );
+			};
+		};
+
+		var fulfill = makeResolver( FULFILLED );
+		var reject = makeResolver( REJECTED );
+
+		try {
+			callback( fulfill, reject );
+		} catch ( err ) {
+			reject( err );
+		}
+
+		return {
+			// `then()` returns a Promise - 2.2.7
+			then: function then( onFulfilled, onRejected ) {
+				var promise2 = new Promise$1( function ( fulfill, reject ) {
+
+					var processResolutionHandler = function ( handler, handlers, forward ) {
+						if ( typeof handler === 'function' ) {
+							handlers.push( function ( p1result ) {
+								try {
+									resolve( promise2, handler( p1result ), fulfill, reject );
+								} catch ( err ) {
+									reject( err );
+								}
+							} );
+						} else {
+							handlers.push( forward );
+						}
+					};
+
+					processResolutionHandler( onFulfilled, fulfilledHandlers, fulfill );
+					processResolutionHandler( onRejected, rejectedHandlers, reject );
+
+					if ( state !== PENDING ) {
+						wait( dispatchHandlers );
+					}
+
+				} );
+				return promise2;
+			},
+			'catch': function catch$1( onRejected ) {
+				return this.then( null, onRejected );
+			}
+		};
+	};
+
+	Promise$1.all = function ( promises ) {
+		return new Promise$1( function ( fulfil, reject ) {
+			var result = [ ];
+			var pending;
+			var i;
+
+			if ( ! promises.length ) {
+				fulfil( result );
+				return;
+			}
+
+			var processPromise = function ( promise, i ) {
+				if ( promise && typeof promise.then === 'function' ) {
+					promise.then( function ( value ) {
+						result[i] = value;
+						-- pending || fulfil( result );
+					}, reject );
+				} else {
+					result[i] = promise;
+					-- pending || fulfil( result );
+				}
+			};
+
+			pending = i = promises.length;
+
+			while ( i -- ) {
+				processPromise( promises[i], i );
 			}
 		} );
-	} else if ( ! traditional && type( obj ) === "object" ) {
-		debugger;
-		// Serialize object item.
-		for ( name in obj ) {
-			buildParams( prefix + "[" + name + "]", obj[ name ], traditional, add );
+	};
+
+	Promise$1.resolve = function ( value ) {
+		return new Promise$1( function ( fulfill ) {
+			fulfill( value );
+		} );
+	};
+
+	Promise$1.reject = function ( reason ) {
+		return new Promise$1( function ( fulfill, reject ) {
+			reject( reason );
+		} );
+	};
+
+	// TODO use MutationObservers or something to simulate setImmediate
+	var wait = function ( callback ) {
+		setTimeout( callback, 0 );
+	};
+
+	var makeDispatcher = function ( handlers, result ) {
+		return function () {
+			for ( var handler = ( void 0 ); handler = handlers.shift(); ) {
+				handler( result );
+			}
+		};
+	};
+
+	var resolve = function ( promise, x, fulfil, reject ) {
+		var then;
+		if ( x === promise ) {
+			throw new TypeError( "A promise's fulfillment handler cannot return the same promise" );
 		}
+		if ( x instanceof Promise$1 ) {
+			x.then( fulfil, reject );
+		} else if ( x && ( typeof x === 'object' || typeof x === 'function' ) ) {
+			try {
+				then = x.then;
+			} catch ( e ) {
+				reject( e );
+				return;
+			}
+			if ( typeof then === 'function' ) {
+				var called;
 
-	} else {
-		// Serialize scalar item.
-		add( prefix, obj );
-	}
+				var resolvePromise = function ( y ) {
+					if ( called ) {
+						return;
+					}
+					called = true;
+					resolve( promise, y, fulfil, reject );
+				};
+				var rejectPromise = function ( r ) {
+					if ( called ) {
+						return;
+					}
+					called = true;
+					reject( r );
+				};
+
+				try {
+					then.call( x, resolvePromise, rejectPromise );
+				} catch ( e ) {
+					if ( ! called ) {
+						reject( e );
+						called = true;
+						return;
+					}
+				}
+			} else {
+				fulfil( x );
+			}
+		} else {
+			fulfil( x );
+		}
+	};
+
 }
-
-function type( obj ) {
-	return Object.prototype.toString.call( obj ).replace( /^\[object (.+)\]$/, "$1" ).toLowerCase( );
-}
-
-var events = {
-	BEFORE_LEAVE: "beforeleave",
-	BEFORE_LEAVE_COMPLETE: "beforeleaveComplete",
-	BEFORE_ENTER: "beforeenter",
-	BEFORE_ENTER_COMPLETE: "beforeenterComplete",
-	ENTER: "enter",	
-	ENTERED: "entered",
-	UPDATE: "update",
-	UPDATED: "updated",
-	LEAVE: "leave",
-	LEFT: "left",
-	ERROR: "error"
-};
 
 var callstack = [ ];
 
 var resetRequest = false;
 
+var busy = false;
+
 setupListeners();
 
-var handler = {
+var handler$2 = {
 
-	//init: ( options ) => {
-	//},
-
-	check: function () {
+	check: function ( options ) {
 		if ( callstack.length > 1 ) {
-			eventer.emit( "routeAbuseStart" );
+
+			if ( !busy ) {
+				busy = true;
+				eventer.emit( events.ROUTE_ABUSE_START, options );
+			}
 
 			// After a short delay we check if the callstack is back to normal.
-			// If at the end of the dely the callstack is normal, we emit "callstackNormal" event.
+			// If at the end of the delay the callstack is normal, we emit ROUTE_ABUSE_STOP event.
 			// If the callstack overflows again during the delay, we cancel the reset request
 			// and begin a new reset request after a delay.
-			var delay = 2000;
-			resetWhenNormal( delay );
+			var delay = config.abuseTimeout;
+			resetWhenNormal( delay, options );
 		}
 	},
-	reset: function () {
+	reset: function ( options ) {
 		callstack = [ ];
-		eventer.emit( "routeAbuseEnd" );
+		resetRequest = false;
+		busy = false;
+		eventer.emit( events.ROUTE_ABUSE_STOP, options );
 	},
 
-	push: function () {
+	push: function ( options ) {
 		callstack.push( 1 );
-		handler.check();
+		handler$2.check( options );
 	},
 
 	pop: function () {
 		callstack.splice( 0, 1 );
-		if ( callstack.length === 0 ) {
-		}
 	}
 };
 
 function setupListeners() {
 
-	eventer.on( "goto", function ( options ) {
-		handler.push();
+	eventer.on( events._GOTO, function ( options ) {
+		if ( options.redirect === true ) {
+			return;
+		}
+		handler$2.push( options );
 	} );
 
 
-	eventer.on( "error", function ( options ) {
-		handler.pop();
+	eventer.on( events.ERROR, function ( options ) {
+		handler$2.pop();
 	} );
 
-	eventer.on( "entered", function ( options ) {
-		handler.pop();
+	eventer.on( events.ENTERED, function ( options ) {
+		handler$2.pop();
 	} );
 
-	eventer.on( "updated", function ( options ) {
-		handler.pop();
+	eventer.on( events.UPDATED, function ( options ) {
+		handler$2.pop();
 	} );
 }
 
-function resetWhenNormal( delay ) {
-	if ( delay === void 0 ) delay = 2000;
+function resetWhenNormal( delay, options ) {
+	if ( delay === void 0 ) delay = config.abuseTimeout;
 
 
 	// if a request was already made to reenable animations, clear it and make a new request
@@ -1633,228 +1613,570 @@ function resetWhenNormal( delay ) {
 
 	// We wait a bit before restting callstack in case user is still thrashing UI.
 	resetRequest = setTimeout( function ( ) {
-		handler.reset( );
+		handler$2.reset( options );
 	}, delay );
 }
 
-var config$2 = {
-	target: null,
-	debug: true
+// Enables HTML5-History-API polyfill: https://github.com/devote/HTML5-History-API
+var location$1 = window$1 && ( window$1.history.location || window$1.location );
+
+function noop () {}
+
+var currentData = {};
+var currentRoute = {
+	enter: function () { return journey.Promise.resolve(); },
+	leave: function () { return journey.Promise.resolve(); },
+	beforeleave: function () { return journey.Promise.resolve(); }
 };
 
-// Enables HTML5-History-API polyfill: https://github.com/devote/HTML5-History-API
-var location$1 = window && ( window.history.location || window.location );
+var _target;
+var isTransitioning = false;
 
-var journey = {	};
+var scrollHistory = {};
+var uniqueID = 1;
+var currentID = uniqueID;
+
+var journey = {
+	Promise: Promise,
+
+	/**
+	 * Add a new route for the given path and transition options.
+	 * 
+	 * @param {string} path route url path eg. 'foo', '/foo', '#foo', '/foo:id', '/foo/:fooId/bar/:barId'
+	 * 
+	 * @param {Object} options specifies the route handlers:<pre><code> {<br/>
+	 *		&nbsp;&nbsp;<em>enter</em>: function( route, prevRoute, options ),<br/>
+	 *		&nbsp;&nbsp;<em>leave</em>: function( route, nextRoute, options ),<br/>
+	 *		&nbsp;&nbsp;<em>beforeleave</em>:  function( route, nextRoute, options ),<br/>
+	 *		&nbsp;&nbsp;<em>beforeenter</em> function( route, prevRoute, options ),<br/>
+	 *		&nbsp;&nbsp;<em>update</em>: function( route, options )<br/>
+	 *  }
+	 * </code></pre>
+	 * 
+	 * @returns {journey} returns the journey instance to allow chaining: 
+	 * <pre><code>
+	 * journey.add( 'foo' ).add( 'bar' ).start();
+	 * </code></pre>
+	 */
+	add: function add( path, options ) {
+
+		if ( path == null ) {
+			throw new Error( "journey.add() requires a path argument!" );
+		}
+
+		options = util.extend( { }, options );
+
+		routes.push( new Route( path, options ) );
+		return journey;
+	},
+
+	/**
+	 * Start Journey with the given options.
+	 * <pre><code>
+	 * journey.add('foo');
+	 * journey.start();
+	 * 
+	 * // with options:
+	 * journey.start( { target: '#main', debug: false, fallback: '/notFound'});
+	defaultRoute: '/home'
+	 * </code></pre>
+	 * 
+	 * @param {Object} options specifies the route options:<pre><code>
+	 *  <em>target</em> (string): the default target to use for rendering views eg. '#main' to render to &lt;div id="main"&gt;&lt;/div&gt;,<br/>
+	 *  <em>fallback</em> (string): specifies a route to use when navigating to a route that does not exist,<br/>
+	 *  <em>debug</em> (boolean): specifies if Journey should print debug statements or not. default: true,<br/>
+	 *  <em>base</em> (string): specifies a base path to use when deploying the application under a specific contextPath,<br/>
+	 *  <em>defaultRoute</em> (string): specifies a default route Journey should navigate to upon startup if no route is specified,<br/>
+	 *  <em>useHash</em> (boolean): specifies whether Hashes or HTML5 pushState should be used. default: true,<br/>
+	 *  <em>hash</em> (string): specifies the hash string to eg. hash: #!, default: #,<br/>
+	 * @returns a promise that resolves after the route enters, or rejects if an error occurs
+	 */
+	start: function start ( options ) {
+		if ( options === void 0 ) options = {};
+
+
+		util.extend( config, options );
+
+	mode.DEBUG = config.debug;
+		
+		watchHistory.start(config);
+		watchHistory.setListener(historyListener);
+
+		var path = pathHelper.getInitialPath();
+
+		var matchFound = routes.some( function (route) { return route.matches( path ); } );
+		var href = matchFound ?
+			path :
+			config.fallback;
+
+			var gotoOptions = {
+				replaceState: true,
+				scrollX: window$1.scrollX,
+				scrollY: window$1.scrollY
+			};
+
+		return journey.goto( href, gotoOptions);
+	},
+
+	/**
+	 * Navigate to the given <em>href</em>.
+	 * <pre><code>
+	 * journey.goto( 'foo' );
+	 * journey.goto( 'foo', { forceReload: true, invisible: true });
+	 * </code></pre>
+	 * 
+	 * @param {string} href specifies a registered path of the route to navigate to
+	 * @param {Object} options specifies the route options:<pre><code>
+	 *  <em>invisible</em> (boolean): whether to update the url or not,<br/>
+	 *  <em>forceReload</em> (boolean): reload the route even if the given route is the current route,<br/>
+	 *  <em>redirect</em> (boolean): specifies that this route will redirect. Journey won't fire routeAbuseStart/routeAbuseEnd.<br/>
+	 * </code></pre>
+	 * @returns a promise that resolves after the route enters, or rejects if an error occurs
+	 */
+	goto: function goto ( href, options) {
+		if ( options === void 0 ) options = {};
+
+		if (href == null) { return journey.Promise.resolve(); }
+
+		href = pathHelper.getGotoPath(href);
+
+		scrollHistory[ currentID ] = {
+			x: window$1.scrollX,
+			y: window$1.scrollY
+		};
+
+		var target;
+		var promise = new journey.Promise( function ( fulfil, reject ) {
+			target = _target = {
+				href: href,
+				scrollX: options.scrollX || 0,
+				scrollY: options.scrollY || 0,
+				options: options,
+				fulfil: fulfil,
+				reject: reject,
+				currentRoute: currentRoute,
+				currentData: currentData
+			};
+		});
+		
+		promise._locked = false;
+		
+		_target.promise = promise;
+		
+		if ( isTransitioning ) {
+			promise._locked = true;
+			//return promise;
+		}
+
+		_goto( target );
+		
+		if ( target._sameRoute ) {
+			return promise;
+		}
+
+		var emitOptions = {
+			redirect: options.redirect,
+			pathname: href,
+			href: location$1.href
+		};
+
+		journey.emit( journey, events._GOTO, emitOptions );
+	
+		promise.catch( function ( err ) {
+			// TODO should we catch this one here? If further inside the plumbing an error is also thrown we end up logging the error twice
+			var errorOptions = handler.gatherErrorOptions( null, currentRoute, null, null, err );
+			eventer.raiseError( errorOptions );
+		} );
+
+		return promise;
+	},
+
+	/**
+	 * Returns the data for the current route
+	 *
+	 * @returns the data for the current route
+	 */
+	getCurrentData: function getCurrentData () {
+		return currentData;
+	},
+
+	/**
+	 * Returns the current route
+	 *
+	 * @returns the current route
+	 */
+	getCurrentRoute: function getCurrentRoute() {
+		return currentRoute;
+	},
+
+	/**
+	 * Returns the base that was set during startup.
+	 *
+	 * @returns the base that was set during startup
+	 */
+	getBase: function getBase ( ) {
+		return config.base;
+	},
+
+	/**
+	 * Start listening to the given event, one of <em>enter, entered, leave, left, beforeenter, beforeenterComplete, beforeleave, beforeleaveComplete,
+	 * update, updated, error, transitionAborted.
+	 * 
+	 * @param {string} event to listen to
+	 * @param {function} listener the function to call when the event is fired. function receives an event argument: <b>journey.on ('enter', function ( event ) {});</b>
+	 * @return {journey} Current instance of journey for chaining.
+	 */
+	on: function on( event, listener ) {
+		eventer.on( event, listener );
+		return journey;
+	},
+
+	/**
+	 * Stop listening to the given event, one of <em>enter, entered, leave, left, beforeenter, beforeenterComplete, beforeleave, beforeleaveComplete,
+	 * update, updated, error, transitionAborted
+	 * @param {string} event top stop listening to
+	 * @param {function} listener optionally provide a specific listener to remove for the event
+	 * @return {journey} Current instance of journey for chaining.
+	 */
+	off: function off( event, listener ) {
+		eventer.off( event, listener );
+		return journey;
+	},
+
+	/**
+	 * Listen to the given event once, after which the listener is removed. Event can be one of
+	 *  <em>enter, entered, leave, left, beforeenter, beforeenterComplete, beforeleave, beforeleaveComplete, update, updated, error, transitionAborted.
+	 *
+	 * @param {string} event to listen to
+	 * @param {function} listener the function to call when the event is fired. function receives an event argument: <b>journey.once ('enter', function ( event ) {});</b>
+	 * @return {journey} Current instance of journey for chaining.
+	 */
+	once: function once( event, listener ) {
+		eventer.off( event, listener );
+		return journey;
+	},
+
+	/**
+	 * Subtly different from emitEvent in that it will pass its arguments on to the listeners, as opposed to taking a single array of arguments to pass on.
+	 * As with emitEvent, you can pass a regex in place of the event name to emit to all events that match it.
+	 *
+	 * @param {String|RegExp} event Name of the event to emit and execute listeners for.
+	 * @param {...*} Optional additional arguments to be passed to each listener.
+	 * @return {journey} Current instance of journey for chaining.
+	 */
+	emit: function emit( event ) {
+		eventer.emit.apply( eventer, arguments );
+		return journey;
+	},
+
+	 /**
+     * Emits an event of your choice.
+     * When emitted, every listener attached to that event will be executed.
+     * If you pass the optional argument array then those arguments will be passed to every listener upon execution.
+     * Because it uses `apply`, your array of arguments will be passed as if you wrote them out separately.
+     * So they will not arrive within the array on the other side, they will be separate.
+     * You can also pass a regular expression to emit to all events that match it.
+     *
+     * @param {String|RegExp} event Name of the event to emit and execute listeners for.
+     * @param {Array} args Optional array of arguments to be passed to each listener.
+     * @return {journey} Current instance of EventEmitter for chaining.
+     */
+	emitEvent: function emitEvent ( event, args ) {
+		eventer.emitEvent.apply( eventer, arguments );
+		return journey;
+	}
+};
 
 eventer.init( journey );
+handler.init( journey );
 
-journey.add = function add( path, options ) {
-	
-	if (path == null) {
-		throw new Error("journey.add does not accept 'null' path");
-	}
-	
-	if (options == null) {
-		throw new Error("journey.add does not accept 'null' options");
-	}
-	
-	options = util.extend( { }, options );
-	wrap( options );
+if ( window$1 ) {
+	watchLinks( function (href) {
+		journey.goto( href )
 
-	roadtrip.add( path, options );
-
-	return journey;
-};
-
-journey.start = function( options ) {
-
-	util.extend( config$2, options );
-
-	mode.DEBUG = config$2.debug;
-	
-	wrapRoadtripGoto();
-
-	return roadtrip.start( options );
-};
-
-journey.goto = function ( href, internalOptions) {
-	if ( internalOptions === void 0 ) internalOptions = {};
-
-	if (roadtrip._origGoto == null) {
-		throw new Error("call start() before using journey");
-	}
-		var promise = roadtrip._origGoto( href, internalOptions );
-
-	if (promise._sameRoute) {
-		return promise;
-	}
-
-	journey.emit( journey, "goto", {href: location$1.href} );
-
-	//routeAbuseMonitor.push();
-	//callstack.check();
-
-	return promise;
-};
-
-journey.getBase = function( ) {
-	return roadtrip.base;
-};
-
-journey.getCurrentRoute = function( ) {
-	return roadtrip.getCurrentRoute();
-};
-
-function raiseError( options ) {
-	utils.logError( options.error );
-	journey.emit( journey, "error", options );
+			.catch(function (e) {
+				isTransitioning = false; 
+			} );
+	});
 }
 
-function raiseEvent( event, args ) {
-	var options = { };
-	if ( event === events.UPDATE || event === events.UPDATED ) {
-		options.route = args[0];
-		options.options = args[1];
+function getNewData(target) {
+	var newData;
+	var newRoute;
 
-	} else if ( event === events.BEFORE_ENTER || event === events.BEFORE_ENTER_COMPLETE ) {
-		options.to = args[0];
-		options.from = args[1];
-		options.options = args[2];
+	for ( var i = 0; i < routes.length; i += 1 ) {
+		var route = routes[i];
+		newData = route.exec( target );
 
-	} else if ( event === events.ENTER || event === events.ENTERED ) {
-		options.to = args[0];
-		options.from = args[1];
-		options.options = args[2];
-		
-	} else if ( event === events.BEFORE_LEAVE || event === events.BEFORE_LEAVE_COMPLETE) {
-		options.from = args[0];
-		options.to = args[1];
-		options.options = args[2];
-
-	} else if ( event === events.LEAVE || event === events.LEFT ) {
-		options.from = args[0];
-		options.to = args[1];
-		options.options = args[2];
+		if ( newData ) {
+			newRoute = route;
+			break;
+		}
 	}
 
-	journey.emit( journey, event, options );
+	return {
+		newRoute: newRoute,
+		newData: newData
+	};
 }
 
-function wrap( options ) {
-	enhanceEvent( events.ENTER, options );
-	enhanceEvent( events.UPDATE, options );
-	enhanceEvent( events.BEFORE_ENTER, options );
-	enhanceEvent( events.LEAVE, options );
-	enhanceEvent( events.BEFORE_LEAVE, options );
+function historyListener( options ) {
+
+		var url = util.stripBase(options.url, journey.getBase());
+
+	var targetOptions = {};
+	var target;
+
+		target = _target = {
+			href: url,
+			hashChange: options.hashChange, // so we know not to manipulate the history
+			popState: options.popState, // so we know not to manipulate the history
+			options: targetOptions,
+			fulfil: noop,
+			reject: noop,
+			currentRoute: currentRoute,
+			currentData: currentData
+		};
+
+		if(options.popEvent != null) {
+			var scroll = scrollHistory[ options.popEvent.state.uid ] || {x: 0, y: 0};
+			target.scrollX = scroll.x;
+			target.scrollY = scroll.y;
+
+		} else {
+			target.scrollX = 0;
+			target.scrollY = 0;
+		}
+
+		_goto( target );
+
+		if(options.popEvent != null) {
+			currentID = options.popEvent.state.uid;
+		}
 }
 
-function enhanceEvent( name, options ) {
-	var handler = options[name];
+function _goto ( target ) {
+	var newRoute;
+	var newData;
+	var forceReloadRoute = target.options.forceReload || false;
 
-	if ( handler == null ) {
+	var targetHref = pathHelper.prefixWithSlash(target.href);
+	target.href = targetHref;
+
+	var result = getNewData(target);
+
+	if (!result.newData) {
+		// If we cannot find data, it is because the requested url isn't mapped to a route. Use fallback to render page. Keep url pointing to requested url for 
+		// debugging.
+		var tempHref = target.href;
+		target.href = config.fallback;
+		result = getNewData(target);
+		target.href = tempHref;
+	}
+
+	newData = result.newData;
+	newRoute = result.newRoute;
+
+	target._sameRoute = false;
+	var _isSameRoute = isSameRoute( newRoute, target.currentRoute, newData, target.currentData );
+	if ( !newRoute || ( _isSameRoute && !forceReloadRoute) ) {
+		target.fulfil();
+		target._sameRoute = true;
 		return;
 	}
 
-	var wrapper = function ( ) {
-		var that = this;
-		//var thatArgs = arguments;
-
-		// Handle errors thrown by handler: enter, leave, update or beforeenter
-		try {
-			// convert arguments into a proper array
-			var args = Array.prototype.slice.call(arguments);
-			
-			var options = {};
-			
-			if (name === events.UPDATE) { // update only accepts one argument
-				args[1] = options;
-				/*
-				if (options == null) {
-					options = args[1] = {};
-				}*/
-
-			} else {
-				args[2] = options;
-				/*
-				if (options == null) {
-					options = args[2] = {};
-				}*/
-			}
-
-			// Ensure default target is passed to events, but don't override if already present
-			options.target = config$2.target;
-			options.startOptions = config$2;
-
-			raiseEvent( name, args );
-
-			// Call handler
-			var result = handler.apply( that, args );
-
-			result = Promise.all( [ result ] ); // Ensure handler result can be handled as promise
-			result.then( function () {
-
-				if ( name === events.BEFORE_ENTER ) {
-					raiseEvent( events.BEFORE_ENTER_COMPLETE, args );
-
-				} else if ( name === events.ENTER ) {
-					raiseEvent( events.ENTERED, args );
-
-				} if ( name === events.BEFORE_LEAVE ) {
-					raiseEvent( events.BEFORE_LEAVE_COMPLETE, args );
-
-				} else if ( name === events.LEAVE ) {
-					raiseEvent( events.LEFT, args );
-
-				} else if ( name === events.UPDATE ) {
-					raiseEvent( events.UPDATED, args );
-				}
-			} ).catch( function (err) {
-				var options = gatherErrorOptions( name, args, err );
-				raiseError( options );
-			} );
-
-			return result;
-
-		} catch ( err ) {
-			var options = gatherErrorOptions( name, args, err );
-			raiseError( options );
-			return Promise.reject( "error occurred in [" + name + "] - " + err.message ); // let others handle further up the stack
-		}
+	scrollHistory[ currentID ] = {
+		x: ( target.currentData.scrollX = window$1.scrollX ),
+		y: ( target.currentData.scrollY = window$1.scrollY )
 	};
 
-	options[name] = wrapper;
-}
+	isTransitioning = true;
 
-function gatherErrorOptions( event, args, err ) {
-	var route, from, to;
+	var promise;
+	if ( !forceReloadRoute && ( newRoute === target.currentRoute ) && newRoute.updateable ) {
+		
+		// handler.emit(UPDATE);
 
-	if ( event === events.UPDATE ) {
-		route = args[0];
+		// For updates, merge newData into currentData, in order to preserve custom data that was set during enter or beforeenter events
+		//newData = util.extend( target.currentData, newData );
 
-	} else if ( event === events.BEFORE_ENTER || event === events.ENTER ) {
-		route = args[0];
-		to = args[0];
-		from = args[1];
-	} else { // LEAVE and BEFORE_LEAVE
-		route = args[1];
-		to = args[1];
-		from = args[0];
+		//promise = newRoute.update( newData );
+		promise = handler.update( newRoute, newData, target );
+		
+		promise.then( function () {
+
+			if ( !continueTransition( target, newData ) ) {
+				return journey.Promise.resolve( {interrupted: true, msg: "route interrupted"} );
+			}
+		} );
+
+	} else {
+
+		promise = new journey.Promise(function (resolve, reject) {
+
+					var transitionPromise;
+
+						//transitionPromise = journey.Promise.all([ target.currentRoute.beforeleave( target.currentData, newData )	]);
+						transitionPromise = handler.beforeleave( newRoute, newData, target );
+
+					transitionPromise
+							.then( function () {
+								if ( continueTransition( target, newData ) ) {
+									var promise = handler.beforeenter( newRoute, newData, target );
+									return promise;
+								} else {
+
+									resolve( {interrupted: true, msg: "route interrupted"} );
+									return journey.Promise.resolve( {interrupted: true, msg: "route interrupted"} );
+								}
+							})
+
+							.then( function () {
+								if ( continueTransition( target, newData ) ) {
+
+									var promise = handler.leave( newRoute, newData, target );
+									return promise;
+
+									//return journey.Promise.all( [ target.currentRoute.leave( target.currentData, newData ) ]);
+
+								} else {
+									var promiseResult = {interrupted: true, msg: "route interrupted"};
+
+									resolve( promiseResult  );
+									return journey.Promise.resolve( promiseResult );
+								}
+							})
+
+							.then( function () {
+
+								if ( continueTransition( target, newData ) ) {
+									// Only update currentRoute *after* .leave is called and the route hasn't changed in the meantime
+									//currentRoute = newRoute;
+									//currentData = newData;
+
+                                    //return newRoute.enter( newData, target.currentData ).then( () => resolve() );
+									var promise = handler.enter( newRoute, newData, target );
+									return promise;
+								} else {
+									resolve( {interrupted: true, msg: "route interrupted"} );
+									return journey.Promise.resolve( {interrupted: true, msg: "route interrupted"} );
+								}
+							}).then( function () {
+								resolve();
+							})
+							.catch( function ( e ) {
+								return reject( e );
+							} );
+						} );
 	}
-	var options = { error: err, event: event, from: from, to: to, route: route };
-	return options;
 
-}
+	promise
+		.then( function ( ) {
 
-function wrapRoadtripGoto() {
-	// Ensure to only wrap goto once, in case journey.start is called more than once
-	if (roadtrip._origGoto != null) { return; }
+			isTransitioning = false;
 
-	roadtrip._origGoto = roadtrip.goto;
-	roadtrip.goto = journey.goto;
+			if ( continueTransition( target, newData ) ) {
+				
+				target.fulfil();
+				updateHistory(target);
 
+			} else {
+				// if the user navigated while the transition was taking
+				// place, we need to do it all again
+				//_goto( _target );
+				_target.promise.then( target.fulfil, target.reject );
+			}
+		})
+		.catch( function (err) {
+			isTransitioning = false;
+			target.reject(err);
+		});
+
+		// If we want the URL to change to the target irrespective if an error occurs or not, uncomment below
+		//updateHistory(target);
+} // * _goto end*
+
+function updateHistory(target) {
 	
+	if ( target.popState || target.hashChange ) { return; }
+
+	var ref = target.options;
+	var replaceState = ref.replaceState;
+	var invisible = ref.invisible;
+	if ( invisible ) { return; }
+	
+	var uid = replaceState ? currentID : ++uniqueID;
+
+	var targetHref = target.href;
+
+	if (watchHistory.useOnHashChange) {
+		targetHref = pathHelper.prefixWithHash(targetHref);
+		target.href = targetHref;
+		watchHistory.setHash( targetHref, target.options );
+
+	} else {
+
+		if (config.useHash) {
+			targetHref = pathHelper.prefixWithHash(targetHref);
+			target.href = targetHref;
+
+		} else {
+			targetHref = pathHelper.prefixWithSlash(targetHref);
+			// Add base path for pushstate, as we are routing to an absolute path '/' eg. /base/page1
+			targetHref = util.prefixWithBase(targetHref, journey.getBase());
+			target.href = targetHref;
+		}
+
+		history[ target.options.replaceState ? 'replaceState' : 'pushState' ]( { uid: uid }, '', target.href );
+	}
+
+	currentID = uid;
+	scrollHistory[ currentID ] = {
+		x: target.scrollX,
+		y: target.scrollY
+	};
 }
 
-export default journey;
-//# sourceMappingURL=journey.mjs.js.map
+function continueTransition( target, newData ) {
+	
+	if ( target._transitionAborted === true )	{ return false; }
+
+	if ( _target === target ) {
+		return true;
+	}
+
+	// add guard so we don't emit transition_aborted more than once for this route transition
+	target._transitionAborted = true;
+
+	var eventOptions = handler.getDefaultOptions( journey.getCurrentRoute() );
+	var options = {
+		to: newData,
+		from: target.currentData,
+		options: eventOptions
+};
+
+	eventer.emit( events.TRANSITION_ABORTED, options );
+	return false;
+}
+
+/**
+ * Not for public use.
+ * 
+ * @private
+ * @param {type} target
+ * @param {type} newRoute
+ * @param {type} newData
+ * @returns {undefined}
+ */
+journey._updateCurrentRoute = function( target, newRoute, newData) {
+	// Only update currentRoute if the route hasn't changed in the meantime
+	if (continueTransition(target, newData)) {
+		currentRoute = newRoute;
+		currentData = newData;
+	}
+};
+
+return journey;
+
+}());
+//# sourceMappingURL=journey.js.map

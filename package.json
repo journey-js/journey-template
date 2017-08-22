@@ -3,13 +3,14 @@
   "description": "My Template",
   "version": "0.0.1",
   "main": "build/js/app/app.js",
-  "module": "docs/js/app/app.mjs.js",
+  "module": "dist/js/app/app.mjs.js",
   "devDependencies": {
-    "chokidar": "1.6.1",
+    "chokidar": "^1.6.1",
     "clean-css": "4.1.2",
-    "express": "4.13.3",
-    "fs-extra": "3.0.1",
-    "fs-jetpack": "1.0.0",
+    "cross-env": "^4.0.0",
+    "express": "^4.13.3",
+    "fs-extra": "^3.0.1",
+    "fs-jetpack": "^1.0.0",
     "glob": "7.1.1",
     "node-version-assets": "1.2.0",
     "open": "0.0.5",
@@ -21,7 +22,10 @@
     "rollup-plugin-ractive-compiler": "0.0.5",
     "rollup-plugin-string": "2.0.2",
     "rollup-plugin-uglify": "2.0.1",
-    "rollup-watch": "3.2.2"
+    "rollup-plugin-ractive-compiler": "0.0.5",
+    "rollup-watch": "^3.2.2",
+    "simulant": "^0.2.2",
+    "uglify-es": "^3.0.15"
   },
   "scripts": {
     "dist": "node dist",

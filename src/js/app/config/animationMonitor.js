@@ -1,5 +1,5 @@
-import Ractive from "Ractive.js";
-import journey from "lib/journey";
+import Ractive from "lib/Ractive.js";
+import journey from "lib/journey.js";
 
 journey.on( "routeAbuseStart", function ( ) {
 	Ractive.defaults.transitionsEnabled = false;

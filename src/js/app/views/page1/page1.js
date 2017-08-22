@@ -1,5 +1,5 @@
 import template from  './page1.html';
-import Ractive from 'Ractive.js';
+import Ractive from 'lib/Ractive.js';
 
 var page1 = {
 

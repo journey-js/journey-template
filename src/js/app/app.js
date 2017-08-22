@@ -1,6 +1,6 @@
 import journey from 'lib/journey.js';
 import './config/routes.js';
-import Ractive from "Ractive.js";
+import Ractive from "lib/Ractive.js";
 import './config/animationMonitor.js';
 import fade from 'lib/fade';
 

@@ -104,7 +104,7 @@ function findRollupPlugin( name ) {
 
 // Bundle and uglify the CSS to the dsitrbution folder
 function compileCss( ) {
-    let source = path.join( srcFolder, 'css', 'site.css' );
+    let source = path.join( srcFolder, 'css', 'app.css' );
     let result = new CleanCSS( { rebaseTo: path.join( srcFolder, 'css' ) } ).minify( [ source ] );
 
     let compiledCss = result.styles;
@@ -112,7 +112,7 @@ function compileCss( ) {
     let cssFolder = path.join( distFolder, 'css' );
     fs.ensureDirSync( cssFolder );
 
-    let target = path.join( cssFolder, 'site.css' );
+    let target = path.join( cssFolder, 'app.css' );
     fs.writeFileSync( target, compiledCss, 'utf-8' );
     return Promise.resolve();
 }
@@ -158,7 +158,7 @@ function versionAssets( ) {
     let htmlPath = path.join( distFolder, 'index.html' );
 
     var version = new versioning( {
-        assets: [ distFolder + '/css/site.css', distFolder + '/js/app/app.js' ],
+        assets: [ distFolder + '/css/app.css', distFolder + '/js/app/app.js' ],
         grepFiles: [ htmlPath ]
     } );
 

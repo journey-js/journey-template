@@ -1,5 +1,5 @@
 import template from  './notFound.html';
-import Ractive from 'Ractive.js';
+import Ractive from 'lib/Ractive.js';
 
 var notFound = {
 

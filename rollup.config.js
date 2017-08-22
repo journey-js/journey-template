@@ -20,7 +20,8 @@ module.exports = {
     // we want to import Ractive in our modules with: import Ractive fcrom 'Ractive.js'.
     // So we inform Rollup that the 'Ractive.js' import is for an external library
 	 external: [
-		'Ractive.js'
+		'lib/Ractive.js',
+		'lib/journey.js'
 	],
 
     plugins: [
